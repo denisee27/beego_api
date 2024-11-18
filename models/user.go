@@ -1,86 +1,103 @@
 package models
 
 import (
-	"errors"
-	"strconv"
-	"time"
+	"github.com/astaxie/beego/orm"
+	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	UserList map[string]*User
-)
+type Users struct {
+	Id        int
+	FirstName string `orm:"null"`
+	LastName  string `orm:"null"`
+	Email     string `orm:"null;unique"`
+	Password  string `orm:"null"`
+}
 
 func init() {
-	UserList = make(map[string]*User)
-	u := User{"user_11111", "astaxie", "11111", Profile{"male", 20, "Singapore", "astaxie@gmail.com"}}
-	UserList["data"] = &u
+	orm.RegisterModel(new(Users))
+}
+func GetAllUsers() []*Users {
+	o := orm.NewOrm()
+	var users []*Users
+	o.QueryTable(new(Users)).All(&users)
+
+	return users
 }
 
-type User struct {
-	Id       string
-	Username string
-	Password string
-	Profile  Profile
+func GetUserById(id int) *Users {
+	o := orm.NewOrm()
+	user := Users{Id: id}
+	o.Read(&user)
+	return &user
 }
 
-type Profile struct {
-	Gender  string
-	Age     int
-	Address string
-	Email   string
-}
+func InsertOneUser(user Users) *Users {
+	o := orm.NewOrm()
+	qs := o.QueryTable(new(Users))
 
-func AddUser(u User) string {
-	u.Id = "user_" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	UserList[u.Id] = &u
-	return u.Id
-}
+	// get prepared statement
+	i, _ := qs.PrepareInsert()
 
-func GetUser(uid string) (u *User, err error) {
-	if u, ok := UserList[uid]; ok {
-		return u, nil
+	var u Users
+
+	// hash password
+	user.Password, _ = hashPassword(user.Password)
+
+	// Insert
+	id, err := i.Insert(&user)
+	if err == nil {
+		// successfully inserted
+		u = Users{Id: int(id)}
+		err := o.Read(&u)
+		if err == orm.ErrNoRows {
+			return nil
+		}
+	} else {
+		return nil
 	}
-	return nil, errors.New("User not exists")
-}
 
-func GetAllUsers() map[string]*User {
-	return UserList
+	return &u
 }
+func UpdateUser(user Users) *Users {
+	o := orm.NewOrm()
+	u := Users{Id: user.Id}
+	var updatedUser Users
 
-func UpdateUser(uid string, uu *User) (a *User, err error) {
-	if u, ok := UserList[uid]; ok {
-		if uu.Username != "" {
-			u.Username = uu.Username
+	// get existing user
+	if o.Read(&u) == nil {
+
+		// updated user
+		// hash new password
+		user.Password, _ = hashPassword(user.Password)
+
+		u = user
+		_, err := o.Update(&u)
+
+		// read updated user
+		if err == nil {
+			// update successful
+			updatedUser = Users{Id: user.Id}
+			o.Read(&updatedUser)
 		}
-		if uu.Password != "" {
-			u.Password = uu.Password
-		}
-		if uu.Profile.Age != 0 {
-			u.Profile.Age = uu.Profile.Age
-		}
-		if uu.Profile.Address != "" {
-			u.Profile.Address = uu.Profile.Address
-		}
-		if uu.Profile.Gender != "" {
-			u.Profile.Gender = uu.Profile.Gender
-		}
-		if uu.Profile.Email != "" {
-			u.Profile.Email = uu.Profile.Email
-		}
-		return u, nil
 	}
-	return nil, errors.New("User Not Exist")
+
+	return &updatedUser
 }
 
-func Login(username, password string) bool {
-	for _, u := range UserList {
-		if u.Username == username && u.Password == password {
-			return true
-		}
+// DeleteUser deletes a user
+func DeleteUser(id int) bool {
+	o := orm.NewOrm()
+	_, err := o.Delete(&Users{Id: id})
+	if err == nil {
+		return true
 	}
 	return false
 }
-
-func DeleteUser(uid string) {
-	delete(UserList, uid)
+func CheckPasswordHash(password string, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
 }

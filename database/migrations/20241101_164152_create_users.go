@@ -19,7 +19,7 @@ func init() {
 
 // Run the migrations
 func (m *CreateUsers_20241101_164152) Up() {
-	m.SQL("CREATE TABLE users")
+	m.SQL("CREATE TABLE users(id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255) UNIQUE, password VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 }
 
 // Reverse the migrations
