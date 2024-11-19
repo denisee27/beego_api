@@ -1,16 +1,21 @@
 package models
 
 import (
+	"errors"
+	"time"
+
 	"github.com/astaxie/beego/orm"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Users struct {
-	Id        int
-	FirstName string `orm:"null"`
-	LastName  string `orm:"null"`
-	Email     string `orm:"null;unique"`
-	Password  string `orm:"null"`
+	Id        string     `orm:"pk;size(36)" valid:"uuid" json:"id,omitempty"`
+	Name      string     `orm:"size(128)" validate:"required" json:"name,omitempty"`
+	Email     string     `orm:"size(64);unique" validate:"required,email" json:"email,omitempty"`
+	Password  string     `orm:"size(64)" validate:"required,min=6" json:"password,omitempty"`
+	CreatedAt *time.Time `orm:"auto_now_add;type(datetime)" json:"created_at,omitempty"`
+	UpdatedAt *time.Time `orm:"auto_now;type(datetime)" json:"updated_at,omitempty"`
 }
 
 func init() {
@@ -20,43 +25,37 @@ func GetAllUsers() []*Users {
 	o := orm.NewOrm()
 	var users []*Users
 	o.QueryTable(new(Users)).All(&users)
-
 	return users
 }
 
-func GetUserById(id int) *Users {
+func GetUserById(ids string) *Users {
 	o := orm.NewOrm()
-	user := Users{Id: id}
-	o.Read(&user)
+	user := Users{Id: ids}
+	if err := o.Read(&user); err == orm.ErrNoRows {
+		return &Users{}
+	}
 	return &user
 }
 
-func InsertOneUser(user Users) *Users {
+func CreateUser(user Users) (*Users, error) {
 	o := orm.NewOrm()
 	qs := o.QueryTable(new(Users))
-
-	// get prepared statement
 	i, _ := qs.PrepareInsert()
-
 	var u Users
-
-	// hash password
+	uid := uuid.New()
+	user.Id = uid.String()
 	user.Password, _ = hashPassword(user.Password)
-
-	// Insert
 	id, err := i.Insert(&user)
 	if err == nil {
-		// successfully inserted
-		u = Users{Id: int(id)}
+		u = Users{Id: string(id)}
 		err := o.Read(&u)
 		if err == orm.ErrNoRows {
-			return nil
+			return nil, err
 		}
 	} else {
-		return nil
+		return nil, err
 	}
-
-	return &u
+	return &u, nil
 }
 func UpdateUser(user Users) *Users {
 	o := orm.NewOrm()
@@ -80,18 +79,23 @@ func UpdateUser(user Users) *Users {
 			o.Read(&updatedUser)
 		}
 	}
-
 	return &updatedUser
 }
-
-// DeleteUser deletes a user
-func DeleteUser(id int) bool {
+func DeleteUser(ids string) error {
 	o := orm.NewOrm()
-	_, err := o.Delete(&Users{Id: id})
-	if err == nil {
-		return true
+
+	// Periksa apakah user dengan ID tersebut ada
+	getId := GetUserById(ids)
+	if getId == nil {
+		return errors.New("user not found")
 	}
-	return false
+
+	// Hapus user berdasarkan ID
+	if _, err := o.Delete(&Users{Id: ids}); err == nil {
+		return nil
+	} else {
+		return err
+	}
 }
 func CheckPasswordHash(password string, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
@@ -100,4 +104,8 @@ func CheckPasswordHash(password string, hash string) bool {
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
+}
+func IsEmailExists(email string) bool {
+	o := orm.NewOrm()
+	return o.QueryTable(new(Users)).Filter("email", email).Exist()
 }

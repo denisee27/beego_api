@@ -14,10 +14,10 @@ import (
 )
 
 func init() {
-	beego.Router("/items/create", &controllers.UserController{}, "post:CreateItem")
-	beego.Router("/items/:id", &controllers.UserController{}, "get:GetItemByID")
-	beego.Router("/items", &controllers.UserController{}, "get:GetItems")
-	beego.Router("/items/update/:id", &controllers.UserController{}, "put:UpdateItem")
-	beego.Router("/items/delete/:id", &controllers.UserController{}, "delete:DeleteItem")
+	beego.Router("/items/create/", &controllers.UserController{}, "post:CreateUser")
+	beego.Router("/items/:id", &controllers.UserController{}, "get:GetUserId")
+	beego.Router("/items", &controllers.UserController{}, "get:GetUsers")
+	beego.Router("/items/update/:id", &controllers.UserController{}, "put:UpdateUser")
+	beego.Router("/items/delete/:id", &controllers.UserController{}, "delete:DeleteUser")
 
 }
