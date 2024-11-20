@@ -90,29 +90,50 @@ func (request *UserController) CreateUser() {
 	request.ServeJSON()
 }
 
-func (uc *UserController) UpdateUser() {
+func (request *UserController) UpdateUser() {
+	var requestBody map[string]json.RawMessage
+	if err := json.Unmarshal(request.Ctx.Input.RequestBody, &requestBody); err != nil {
+		request.Data["json"] = map[string]interface{}{
+			"status": http.StatusBadRequest,
+			"wrong":  "Invalid JSON format",
+		}
+		request.ServeJSON()
+		return
+	}
 	var u models.Users
-	json.Unmarshal(uc.Ctx.Input.RequestBody, &u)
-	user := models.UpdateUser(u)
-	uc.Data["json"] = user
-	uc.ServeJSON()
+	if err := json.Unmarshal(requestBody["data"], &u); err != nil {
+		request.Data["json"] = map[string]interface{}{
+			"status": http.StatusBadRequest,
+			"wrong":  "Invalid 'data' format",
+		}
+		request.ServeJSON()
+		return
+	}
+	if err := models.UpdateUser(u); err != nil {
+		request.Data["json"] = map[string]interface{}{
+			"status": http.StatusInternalServerError,
+			"error":  err.Error(),
+		}
+		request.ServeJSON()
+		return
+	}
+	request.Data["json"] = map[string]interface{}{
+		"status": http.StatusOK,
+		"result": "ok",
+	}
+	request.ServeJSON()
 }
 
 func (request *UserController) DeleteUser() {
-	// Ambil ID dari parameter
 	id := request.GetString(":id")
-
-	// Panggil fungsi model untuk menghapus user
 	err := models.DeleteUser(id)
 	if err != nil {
-		// Jika terjadi error, kirimkan respons error
 		request.Data["json"] = map[string]interface{}{
 			"status":  http.StatusInternalServerError,
 			"result":  "error",
 			"message": err.Error(),
 		}
 	} else {
-		// Jika berhasil, kirimkan respons sukses
 		request.Data["json"] = map[string]interface{}{
 			"status": http.StatusOK,
 			"result": "ok",

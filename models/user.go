@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/astaxie/beego/orm"
@@ -57,46 +58,39 @@ func CreateUser(user Users) (*Users, error) {
 	}
 	return &u, nil
 }
-func UpdateUser(user Users) *Users {
+
+func UpdateUser(user Users) error {
 	o := orm.NewOrm()
 	u := Users{Id: user.Id}
-	var updatedUser Users
-
-	// get existing user
-	if o.Read(&u) == nil {
-
-		// updated user
-		// hash new password
-		user.Password, _ = hashPassword(user.Password)
-
-		u = user
-		_, err := o.Update(&u)
-
-		// read updated user
-		if err == nil {
-			// update successful
-			updatedUser = Users{Id: user.Id}
-			o.Read(&updatedUser)
-		}
+	if err := o.Read(&u); err != nil {
+		return fmt.Errorf("user not found: %w", err)
 	}
-	return &updatedUser
+	if user.Password != "" {
+		hashedPassword, err := hashPassword(user.Password)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+		user.Password = hashedPassword
+	}
+	if _, err := o.Update(&user); err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	return nil
 }
+
 func DeleteUser(ids string) error {
 	o := orm.NewOrm()
-
-	// Periksa apakah user dengan ID tersebut ada
 	getId := GetUserById(ids)
 	if getId == nil {
 		return errors.New("user not found")
 	}
-
-	// Hapus user berdasarkan ID
 	if _, err := o.Delete(&Users{Id: ids}); err == nil {
 		return nil
 	} else {
 		return err
 	}
 }
+
 func CheckPasswordHash(password string, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
