@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/astaxie/beego"
-	"github.com/go-playground/validator/v10"
 )
 
 type UserController struct {
@@ -65,18 +64,8 @@ func (request *UserController) CreateUser() {
 		request.ServeJSON()
 		return
 	}
-	validate := validator.New()
-	if err := validate.Struct(u); err != nil {
-		request.Data["json"] = map[string]interface{}{
-			"status":  http.StatusBadRequest,
-			"message": "Validation failed",
-			"wrong":   err.Error(),
-		}
-		request.ServeJSON()
-		return
-	}
-	insertedUser, err := models.CreateUser(u)
-	if insertedUser != nil {
+	err := models.CreateUser(u)
+	if err != nil {
 		request.Data["json"] = map[string]interface{}{
 			"status": http.StatusInternalServerError,
 			"wrong":  err.Error(),
@@ -112,7 +101,7 @@ func (request *UserController) UpdateUser() {
 	if err := models.UpdateUser(u); err != nil {
 		request.Data["json"] = map[string]interface{}{
 			"status": http.StatusInternalServerError,
-			"error":  err.Error(),
+			"wrong":  err.Error(),
 		}
 		request.ServeJSON()
 		return

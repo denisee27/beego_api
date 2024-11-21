@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/orm"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -14,10 +15,12 @@ type Users struct {
 	Id        string     `orm:"pk;size(36)" valid:"uuid" json:"id,omitempty"`
 	Name      string     `orm:"size(128)" validate:"required" json:"name,omitempty"`
 	Email     string     `orm:"size(64);unique" validate:"required,email" json:"email,omitempty"`
-	Password  string     `orm:"size(64)" validate:"required,min=6" json:"password,omitempty"`
+	Password  *string    `orm:"size(64),min=6" json:"password,omitempty"`
 	CreatedAt *time.Time `orm:"auto_now_add;type(datetime)" json:"created_at,omitempty"`
 	UpdatedAt *time.Time `orm:"auto_now;type(datetime)" json:"updated_at,omitempty"`
 }
+
+var validate = validator.New()
 
 func init() {
 	orm.RegisterModel(new(Users))
@@ -38,35 +41,43 @@ func GetUserById(ids string) *Users {
 	return &user
 }
 
-func CreateUser(user Users) (*Users, error) {
+func CreateUser(user Users) error {
+	if err := validate.Struct(user); err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	if user.Password == nil {
+		return fmt.Errorf("Password can't empty")
+	}
 	o := orm.NewOrm()
 	qs := o.QueryTable(new(Users))
 	i, _ := qs.PrepareInsert()
-	var u Users
 	uid := uuid.New()
 	user.Id = uid.String()
-	user.Password, _ = hashPassword(user.Password)
-	id, err := i.Insert(&user)
-	if err == nil {
-		u = Users{Id: string(id)}
-		err := o.Read(&u)
-		if err == orm.ErrNoRows {
-			return nil, err
-		}
-	} else {
-		return nil, err
+	user.Password, _ = hashPassword(*user.Password)
+	_, err := i.Insert(&user)
+	if err != nil {
+		return err
 	}
-	return &u, nil
+	return nil
 }
 
 func UpdateUser(user Users) error {
+	if err := validate.Struct(user); err != nil {
+		return fmt.Errorf("wrong: %w", err)
+	}
 	o := orm.NewOrm()
 	u := Users{Id: user.Id}
 	if err := o.Read(&u); err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
-	if user.Password != "" {
-		hashedPassword, err := hashPassword(user.Password)
+	if user.Email != u.Email {
+		existing := Users{Email: user.Email}
+		if err := o.Read(&existing, "Email"); err == nil {
+			return fmt.Errorf("email already in use")
+		}
+	}
+	if user.Password != nil {
+		hashedPassword, err := hashPassword(*user.Password)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
@@ -95,9 +106,14 @@ func CheckPasswordHash(password string, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
-func hashPassword(password string) (string, error) {
+func hashPassword(password string) (*string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
+	if err != nil {
+		return nil, err
+	}
+	hashed := string(bytes)
+	return &hashed, nil
+
 }
 func IsEmailExists(email string) bool {
 	o := orm.NewOrm()
