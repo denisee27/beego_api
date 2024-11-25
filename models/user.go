@@ -25,6 +25,7 @@ var validate = validator.New()
 func init() {
 	orm.RegisterModel(new(Users))
 }
+
 func GetAllUsers() []*Users {
 	o := orm.NewOrm()
 	var users []*Users
@@ -102,10 +103,6 @@ func DeleteUser(ids string) error {
 	}
 }
 
-func CheckPasswordHash(password string, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
 func hashPassword(password string) (*string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	if err != nil {

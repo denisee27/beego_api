@@ -28,9 +28,7 @@ func main() {
 		print("Failed to register database:", regDB)
 	}
 	name := "default"
-	// drop table and re-create
 	force := false
-	// print log
 	verbose := true
 	err := orm.RunSyncdb(name, force, verbose)
 	if err != nil {
