@@ -11,12 +11,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const (
-	SecretKEY              string = "JWT-Secret-Key"
-	DEFAULT_EXPIRE_SECONDS int    = 600 // default expired 10 minutes
-	PasswordHashBytes             = 16
-)
-
 type PayloadJwt struct {
 	Id string `json:"id"`
 	jwt.RegisteredClaims

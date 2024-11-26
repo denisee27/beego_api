@@ -50,12 +50,15 @@ func CreateUser(user Users) error {
 		return fmt.Errorf("Password can't empty")
 	}
 	o := orm.NewOrm()
-	qs := o.QueryTable(new(Users))
-	i, _ := qs.PrepareInsert()
-	uid := uuid.New()
-	user.Id = uid.String()
+	user.Id = uuid.NewString()
 	user.Password, _ = hashPassword(*user.Password)
-	_, err := i.Insert(&user)
+	sql := `
+		INSERT INTO users (id, name, email, password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, NOW(), NOW())
+		RETURNING id
+	`
+	var insertedId string
+	err := o.Raw(sql, user.Id, user.Name, user.Email, *user.Password).QueryRow(&insertedId)
 	if err != nil {
 		return err
 	}
